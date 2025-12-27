@@ -37,7 +37,11 @@
 	],
 	"browser_specific_settings": {
 		"gecko": {
-			"id": "betterhalo@evanglass.me"
+			"id": "betterhalo@evanglass.me",
+            "data_collection_permissions": {
+                "required": [],
+                "optional": []
+            }
 		}
 	}
 }
