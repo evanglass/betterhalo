@@ -242,12 +242,10 @@ fragment AllAssessmentGrades_assessmentGrades_grades_userQuizAssessment on QuizU
     return allGrades;
 }
 
-function getCardFromClassCode(classCode) {
-    let pres = document.querySelectorAll(`div[role='presentation']`);
+function getCardFromClassCode(classCode, cards) {
+    let card_pres = cards.find(card => card.innerHTML.includes(classCode));
 
-    let card_pres = Array.from(pres).find(card => card.innerHTML.includes(classCode));
-
-    return card_pres.parentElement.parentElement.parentElement;
+    return card_pres ? card_pres.parentElement.parentElement.parentElement : null;
 }
 
 async function update_homepage(tokens) {
@@ -264,12 +262,23 @@ async function update_homepage(tokens) {
         return;
     }
 
-    console.log('Retrieved class list:', classListResponse.data.getCourseClassesForUser.courseClasses);
+    const classes = classListResponse.data.getCourseClassesForUser.courseClasses;
 
-    for (const classInfo of classListResponse.data.getCourseClassesForUser.courseClasses) {
-        console.log("Updating class:", classInfo.classCode);
+    const cards = Array.from(document.querySelectorAll(`div[role='presentation']`));
+    const currentDate = new Date();
+    const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
-        let card = getCardFromClassCode(classInfo.classCode);
+    // Fetch all grades in parallel
+    const gradePromises = classes.map(classInfo => 
+        getAllAssessmentGrades(tokens, classInfo.slugId)
+            .then(response => ({ classId: classInfo.id, response }))
+    );
+
+    const allGradesResults = await Promise.all(gradePromises);
+    const gradesMap = new Map(allGradesResults.map(res => [res.classId, res.response]));
+
+    for (const classInfo of classes) {
+        let card = getCardFromClassCode(classInfo.classCode, cards);
 
         if (!card) {
             console.error('Failed to find card for', classInfo.classCode);
@@ -285,19 +294,20 @@ async function update_homepage(tokens) {
         card.appendChild(upcoming_assessments_div);
 
         // Copy assessment statuses
-        const allGradesResponse = await getAllAssessmentGrades(tokens, classInfo.slugId, classInfo.units.forEach(u => u.id));
+        const allGradesResponse = gradesMap.get(classInfo.id);
             
-        if (!allGradesResponse.data) {
-            console.error('Failed to retrieve grades for', classInfo.slugId, allGradesResponse.errors);
+        if (!allGradesResponse || !allGradesResponse.data) {
+            console.error('Failed to retrieve grades for', classInfo.slugId, allGradesResponse?.errors);
             continue;
         }
 
         let all_assessments = classInfo.units.flatMap(unit => unit.assessments);
+        const assessmentMap = new Map(all_assessments.map(a => [a.id, a]));
 
         for (const unitGrade of allGradesResponse.data.assessmentGrades) {
             for (const grade of unitGrade.grades) {
                 const assessmentId = grade.assessment.id;
-                const assessment = all_assessments.find(a => a.id === assessmentId);
+                const assessment = assessmentMap.get(assessmentId);
                 if (assessment) {
                     assessment.status = grade.status;
                 }
@@ -308,7 +318,7 @@ async function update_homepage(tokens) {
             .filter(
                 (assessment) => {
                     const isActive = assessment.status === 'ACTIVE';
-                    const isWithinNextTwoWeeks = new Date(assessment.dueDate) <= new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+                    const isWithinNextTwoWeeks = new Date(assessment.dueDate) <= twoWeeksFromNow;
                     return isActive && isWithinNextTwoWeeks;
                 }
             )
@@ -320,32 +330,48 @@ async function update_homepage(tokens) {
             list.style.flexDirection = 'column';
             list.style.gap = '5px';
 
+            let count = 0;
             for (const assessment of upcoming_assessments) {
                 let listItem = document.createElement('div');
                 listItem.style.display = 'flex';
                 listItem.style.justifyContent = 'space-between';
                 listItem.style.borderBottom = '1px solid #eee';
                 listItem.style.paddingBottom = '5px';
+                listItem.setAttribute('data-class-id', classInfo.id);
+                
+                const isTooMany = count > 4;
+                const isOverAWeekPastDue = new Date(assessment.dueDate) < new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+                if (isTooMany || isOverAWeekPastDue) {
+                    listItem.style.display = 'none';
+                } else {
+                    count++;
+                }
 
                 let listItemName = document.createElement('strong');
+                listItemName.style.whiteSpace = 'nowrap';
+                listItemName.style.overflow = 'hidden';
+                listItemName.style.textOverflow = 'ellipsis';
+                listItemName.style.flexShrink = '1';
                 listItemName.textContent = assessment.title;
                 listItem.appendChild(listItemName);
 
                 let listItemDue = document.createElement('span');
                 listItemDue.style.textAlign = 'right';
+                listItemDue.style.whiteSpace = 'nowrap';
 
                 let dueDate = new Date(assessment.dueDate);
 
-                if (dueDate < Date.now()) {
+                if (dueDate < currentDate) {
                     listItemDue.textContent = `Past Due ${dueDate.toLocaleDateString()}`;
                     listItemDue.style.color = 'red';
-                } else if (dueDate.getDate() === (new Date()).getDate()) {
+                } else if (dueDate >= new Date(currentDate.getTime()) && dueDate < new Date(currentDate.getTime() + 1 * 24 * 60 * 60 * 1000)) {
                     listItemDue.textContent = `Today ${dueDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
-                } else if (dueDate.getDate() === (new Date()).getDate() + 1) {
+                    listItemDue.style.color = 'orange';
+                } else if (dueDate >= new Date(currentDate.getTime() + 1 * 24 * 60 * 60 * 1000) && dueDate <= new Date(currentDate.getTime() + 2 * 24 * 60 * 60 * 1000)) {
                     listItemDue.textContent = `Tomorrow ${dueDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
-                } else if (dueDate.getDate() <= (new Date()).getDate() + 7) {
+                } else if (dueDate <= new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000)) {
                     const dayOfWeek = dueDate.toLocaleDateString(undefined, { weekday: 'long' });
-                    listItemDue.textContent = `${dayOfWeek} ${dueDate.toLocaleTimeString()}`;
+                    listItemDue.textContent = `${dayOfWeek} ${dueDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
                 } else {
                     listItemDue.textContent = `${dueDate.toLocaleDateString()}`;
                 }
@@ -354,7 +380,19 @@ async function update_homepage(tokens) {
                 list.appendChild(listItem);
             }
 
+            let showMoreButton = document.createElement('button');
+            showMoreButton.textContent = 'Show More';
+            showMoreButton.style.marginTop = '5px';
+            showMoreButton.style.color = '#007bff';
+            showMoreButton.style.textDecoration = 'underline';
+            showMoreButton.addEventListener('click', () => {
+                const hiddenItems = upcoming_assessments_div.querySelectorAll('div[data-class-id=\"' + classInfo.id + '\"][style*="display: none"]');
+                hiddenItems.forEach(item => item.style.display = 'flex');
+                showMoreButton.style.display = 'none';
+            });
+
             upcoming_assessments_div.appendChild(list);
+            upcoming_assessments_div.appendChild(showMoreButton);
         } else {
             let noAssessments = document.createElement('p');
             noAssessments.textContent = 'No upcoming assessments';
@@ -368,8 +406,9 @@ function update_page() {
         return;
     }
 
+    // Make sure the card elements are loaded
     if (document.querySelectorAll(`div[role='presentation']`).length === 0) {
-        queue.push(update_page);
+        enqueueFunction(update_page);
         return;
     }
 
@@ -385,21 +424,21 @@ function update_page() {
 
 function request_cookies() {
     // Retrieve LMS cookies
-    if (!LMS_AUTH_value || !LMS_CONTEXT_value) {
-        chrome.runtime.sendMessage({ action: 'get_lms_cookies' }, (response) => {
-            if (response.error) {
-                console.error('Error retrieving cookies:', response.error);
-                return;
-            }
+    chrome.runtime.sendMessage({ action: 'get_lms_cookies' }, (response) => {
+        if (response.error) {
+            console.error('Error retrieving cookies:', response.error);
+            return;
+        }
 
-            if (!response.LMS_AUTH || !response.LMS_CONTEXT) {
-                return;
-            }
+        if (!response.LMS_AUTH || !response.LMS_CONTEXT) {
+            return;
+        }
 
-            LMS_AUTH_value = response.LMS_AUTH;
-            LMS_CONTEXT_value = response.LMS_CONTEXT;
-        });
-    }
+        LMS_AUTH_value = response.LMS_AUTH;
+        LMS_CONTEXT_value = response.LMS_CONTEXT;
+
+        enqueueFunction(update_page);
+    });
 }
 
 function processQueue() {
@@ -413,6 +452,18 @@ function processQueue() {
         
         window.setTimeout(processQueue, 10);
     }
+}
+
+function enqueueFunction(func) {
+    if (queue.includes(func)) {
+        return;
+    }
+
+    if (queue.length === 0) {
+        window.setTimeout(processQueue, 10);
+    }
+
+    queue.push(func);
 }
 
 async function onload() {
@@ -434,35 +485,32 @@ async function onload() {
 
     console.log('BetterHalo content script loaded');
 
-    chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-        if (document.querySelector('.betterhalo')) {
-            // If BetterHalo elements exist, don't re-request cookies
-            return;
-        }
-        
+    chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {     
         if (request.action === "historyStateUpdated") {
-            queue.push(update_page);
-            window.setTimeout(processQueue, 10);
+            enqueueFunction(update_page);
             return;
         }
         
         if (request.action === "lmsCookiesChanged") {
+            if (LMS_AUTH_value && LMS_CONTEXT_value) {
+                // If both cookies are already set, don't bother refreshing the page
+                return;
+            }
+
             if (request.cookieName === "LMS_AUTH") {
                 LMS_AUTH_value = request.cookieValue;
             } else if (request.cookieName === "LMS_CONTEXT") {
                 LMS_CONTEXT_value = request.cookieValue;
             }
 
-            queue.push(update_page);
-            window.setTimeout(processQueue, 10);
+            enqueueFunction(update_page);
             return;
         }
     });
     
     // Initial request for cookies to populate content
-    queue.push(request_cookies);
-    queue.push(update_page);
-    window.setTimeout(processQueue, 10);
+    enqueueFunction(request_cookies);
+    enqueueFunction(update_page);
 }
 
 onload();

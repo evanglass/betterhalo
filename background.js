@@ -59,14 +59,18 @@ chrome.cookies.onChanged.addListener(function(changeInfo) {
     if (changeInfo.cookie.name === LMS_AUTH_cookie_name || changeInfo.cookie.name === LMS_CONTEXT_cookie_name) {
         // Notify all halo tabs that the cookies have changed
         chrome.tabs.query({}, function(tabs) {
-            tabs.forEach(function(tab) {
-                if (tab.url.startsWith(getHaloUrl())) {
-                    if (changeInfo.cookie.name === LMS_AUTH_cookie_name) {
-                        chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_AUTH", cookieValue: changeInfo.cookie.value } );
-                    } else if (changeInfo.cookie.name === LMS_CONTEXT_cookie_name) {
-                        chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_CONTEXT", cookieValue: changeInfo.cookie.value } );
+            getHaloUrl().then((haloUrl) => {
+                if (!haloUrl) return;
+                
+                tabs.forEach(function(tab) {
+                    if (tab.url && tab.url.startsWith(haloUrl)) {
+                        if (changeInfo.cookie.name === LMS_AUTH_cookie_name) {
+                            chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_AUTH", cookieValue: changeInfo.cookie.value } );
+                        } else if (changeInfo.cookie.name === LMS_CONTEXT_cookie_name) {
+                            chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_CONTEXT", cookieValue: changeInfo.cookie.value } );
+                        }
                     }
-                }
+                });
             });
         });
     }

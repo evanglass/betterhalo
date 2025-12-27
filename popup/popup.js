@@ -21,7 +21,7 @@ saveButton.addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.get('haloUrl', (data) => {
         if (data.haloUrl) {
-            document.getElementById('haloUrlInput').value = data.haloUrl;
+            document.getElementById('haloUrlInput').value = data.haloUrl || 'https://halo.gcu.edu';
         }
     });
 });
