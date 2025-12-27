@@ -1,6 +1,6 @@
 # BetterHalo
 
-BetterHalo is a browser extension designed to enhance the Halo LMS experience. It is intended to be an analogue to [BetterCanvas](https://github.com/UseBetterCanvas/bettercanvas) designed for the Halo LMS system.
+BetterHalo is a browser extension designed to enhance the Halo LMS experience. It is intended to be an analogue to [BetterCanvas](https://github.com/UseBetterCanvas/bettercanvas) designed for the Grand Canyon University's Halo LMS system.
 
 ## Features
 - **Upcoming Assessments:** See what's due in the next for all your classes at a glance, right at the homepage.
@@ -27,7 +27,10 @@ BetterHalo is a browser extension designed to enhance the Halo LMS experience. I
 Click the BetterHalo icon in your add-on toolbar to access settings for the add-on.
 
 ## Test Drive
-Since GCU provides a [test drive instance](https://testdrive.gcu.edu) of the Halo LMS, you can try it out even without a Halo account. Just open the configuration and set the Halo URL to `https://testdrive.gcu.edu`. Then simply launch the student instance to get a feel of how the extension works.
+Since GCU provides a [test drive instance](https://testdrive.gcu.edu) of Halo, you can try it out even without a Halo account. Just open the configuration and set the Halo URL to `https://testdrive.gcu.edu`. Then simply launch the student instance to get a feel of how the extension works.
 
 ## Privacy
 See [PRIVACY.md](PRIVACY.md) for our full privacy policy.
+
+## Disclaimer
+The author of this browser extension is not affiliated with nor endorsed by Grand Canyon University.
