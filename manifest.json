@@ -5,12 +5,11 @@
 	"description": "A better way to use Halo LMS.",
 	"permissions": [
         "storage",
-        "activeTab",
         "scripting",
         "cookies",
         "webNavigation"
     ],
-	"host_permissions": ["https://*.gcu.edu/*"],
+	"host_permissions": ["*://*.gcu.edu/*"],
 	"background": {
         "scripts": ["background.js"],
 		"service_worker": "background.js",

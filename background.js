@@ -18,20 +18,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return false;
         }
 
-        const storeId = sender.tab.cookieStoreId;
-
         getHaloUrl().then((haloUrl) => {
             if (!haloUrl) {
                 sendResponse({ error: 'Halo URL not set' });
                 return;
             }
 
-            chrome.cookies.getAll({ url: haloUrl, storeId: storeId }, (cookies) => {
+            const filter = { url: haloUrl };
+            if (sender.tab && sender.tab.cookieStoreId) {
+                filter.storeId = sender.tab.cookieStoreId;
+            }
+
+            chrome.cookies.getAll(filter, (cookies) => {
                 let lmsAuthCookie = cookies.find(cookie => cookie.name === LMS_AUTH_cookie_name);
                 let lmsContextCookie = cookies.find(cookie => cookie.name === LMS_CONTEXT_cookie_name);
                 sendResponse({
                     LMS_AUTH: lmsAuthCookie ? lmsAuthCookie.value : null,
-                    LMS_CONTEXT: lmsContextCookie ? lmsContextCookie.value : null,
+                    LMS_CONTEXT: lmsContextCookie ? lmsContextCookie.value : null
                 });
             });
         });
