@@ -3,9 +3,13 @@ let saveButton = document.getElementById('saveButton');
 
 saveButton.addEventListener('click', () => {
     const haloUrl = document.getElementById('haloUrlInput').value.trim();
+    const upcomingAssignmentCount = parseInt(document.getElementById('upcomingAssignmentCountInput').value, 10) || 5;
 
     // Save the URL to Chrome storage
-    chrome.storage.sync.set({ haloUrl: haloUrl }, () => {
+    chrome.storage.sync.set({ haloUrl: haloUrl, upcomingAssignmentCount: upcomingAssignmentCount }, () => {
+        // Send message to background to update any necessary data
+        chrome.runtime.sendMessage({ action: 'settings_updated' });
+
         console.log('Halo URL saved:', haloUrl);
 
         saveButton.textContent = 'Saved!';

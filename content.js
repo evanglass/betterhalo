@@ -3,6 +3,9 @@ let haloApiUrl = null;
 let LMS_AUTH_value = null;
 let LMS_CONTEXT_value = null;
 let queue = [];
+let settings = {
+    upcomingAssignmentCount: 5
+};
 
 ///
 /// UTILITIES
@@ -12,6 +15,14 @@ function getHaloUrl() {
     return new Promise((resolve) => {
         chrome.runtime.sendMessage({ action: 'get_halo_url' }, (response) => {
             resolve(response.haloUrl || 'https://halo.gcu.edu');
+        });
+    });
+}
+
+function getSettings() {
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'get_settings' }, (response) => {
+            resolve(response);
         });
     });
 }
@@ -266,7 +277,7 @@ fragment AllAssessmentGrades_assessmentGrades_grades_userQuizAssessment on QuizU
 /// PAGE UPDATES
 ///
 
-async function update_homepage(tokens) {
+async function update_homepage(tokens, settings) {
     console.log('Updating homepage with BetterHalo info');
 
     // Remove existing BetterHalo elements
@@ -370,9 +381,9 @@ async function update_homepage(tokens) {
                 });
                 listItem.setAttribute('data-class-id', classInfo.id);
                 
-                // Limit to 5 upcoming assessments and hide those more than a week past due
+                // Limit upcoming assessments and hide those more than a week past due
                 // TODO: Prioritize showing today/tomorrow assessments over past due ones if needed
-                const isTooMany = count > 4;
+                const isTooMany = count > settings.upcomingAssignmentCount - 1;
                 const isOverAWeekPastDue = new Date(assessment.dueDate) < new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
                 if (isTooMany || isOverAWeekPastDue) {
                     listItem.style.display = 'none';
@@ -431,7 +442,7 @@ async function update_homepage(tokens) {
             upcoming_assessments_div.appendChild(list);
 
             // Add a "Show More" button which is enabled if there are hidden assessments
-            if (count > 4) {
+            if (count > settings.upcomingAssignmentCount - 1) {
                 let showMoreButton = document.createElement('button');
 
                 applyStyles(showMoreButton, {
@@ -480,7 +491,7 @@ function update_page() {
     };
 
     if (weAreOnHomepage()) {
-        update_homepage(tokens);
+        update_homepage(tokens, settings);
     }
 }
 
@@ -549,6 +560,15 @@ async function onload() {
             }
 
             update_page();
+            return;
+        }
+
+        if (request.action === "settingsUpdated") {
+            getSettings().then((newSettings) => {
+                settings = newSettings;
+                update_page();
+            });
+
             return;
         }
     });

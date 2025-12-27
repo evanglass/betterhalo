@@ -44,6 +44,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ haloUrl });
         });
         return true;
+    } else if (request.action === 'get_settings') {
+        // Send back all saved settings
+        chrome.storage.sync.get(['upcomingAssignmentCount'], (data) => {
+            sendResponse({
+                upcomingAssignmentCount: data.upcomingAssignmentCount || 5,
+            });
+        });
+        return true;
+    } else if (request.action === 'settings_updated') {
+        // Distribute settings update to all relevant tabs
+        getHaloUrl().then((haloUrl) => {
+            chrome.tabs.query({ url: haloUrl + "/*" }, function(tabs) {
+                tabs.forEach(function(tab) {
+                    chrome.tabs.sendMessage(tab.id, { action: "settingsUpdated" }).catch(() => {});
+                });
+            });
+        });
+        sendResponse({status: "ok"});
+        return true;
     }
 
     sendResponse({error: "Unknown action", action: request.action});
