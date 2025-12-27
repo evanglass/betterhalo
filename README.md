@@ -1,36 +1,28 @@
-# BetterHalo - Manifest V3 Extension Template
+# BetterHalo
 
-This is a basic template for a cross-browser extension using Manifest V3, compatible with Chrome, Edge, and Firefox.
+BetterHalo is a browser extension designed to enhance the Halo LMS experience. It is intended to be an analogue to [BetterCanvas](https://github.com/UseBetterCanvas/bettercanvas) designed for the Halo LMS system.
 
-## Project Structure
-...
-## How to Install Manually
+## Features
+- **Upcoming Assessments:** See what's due in the next for all your classes at a glance, right at the homepage.
+- **Real-time Updates:** Automatically refreshes when you load your homepage to make sure you have the latest info.
+- **Privacy Focused:** All data is processed locally in your browser. No data is ever sent to external servers.
+
+## Manual Installation
 
 ### Chrome / Edge / Brave
-1.  **Open Extensions Page:**
-    - In Chrome, go to `chrome://extensions/`.
-    - In Edge, go to `edge://extensions/`.
-2.  **Enable Developer Mode:**
-    - Toggle the **Developer mode** switch in the top right corner.
-3.  **Load Unpacked Extension:**
-    - Click the **Load unpacked** button.
-    - Navigate to and select the folder containing this project (`BetterHalo`).
+1. Open `chrome://extensions/` or `edge://extensions/` or `brave://extensions/`.
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select the `BetterHalo` folder.
 
 ### Firefox
-1.  **Open Debugging Page:**
-    - Go to `about:debugging#/runtime/this-firefox`.
-2.  **Load Temporary Add-on:**
-    - Click the **Load Temporary Add-on...** button.
-    - Navigate to the project folder and select the `manifest.json` file.
+1. Go to `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on...** and select the `manifest.json` file.
 
-## Verify Installation
-- You should see "BetterHalo" in your list of extensions.
-- Click the extension icon in the toolbar to see the popup.
-- Open the console on any webpage to see the "BetterHalo content script loaded" message.
+## Configuration
+There is not much configuration yet. As more features are added, configuration elements can be accessed by clicking the BetterHalo icon in your add-on toolbar.
 
-## Development
+## Test Drive
+Since GCU provides a [test drive instance](https://testdrive.gcu.edu) of the Halo LMS, you can try it out even without a Halo account. Just open the configuration and set the Halo URL to `https://testdrive.gcu.edu` and open the student instance to get a feel of how the extension works.
 
-- **Background Script:** Edit `background.js` for background tasks.
-- **Content Script:** Edit `content.js` to interact with web pages.
-- **Popup:** Edit files in the `popup/` directory to change the extension's UI.
-- **Icons:** Add your own icons to an `icons/` folder and update `manifest.json` if needed.
+## Privacy
+See [PRIVACY.md](PRIVACY.md) for our full privacy policy.

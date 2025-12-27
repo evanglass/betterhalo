@@ -1,16 +1,18 @@
-const LMS_AUTH_cookie_name = 'TE1TX0FVVEg';
-const LMS_CONTEXT_cookie_name = 'TE1TX0NPTlRFWFQ';
+const LMS_AUTH_cookie_name = 'TE1TX0FVVEg'; // 'LMS_AUTH' in Base64
+const LMS_CONTEXT_cookie_name = 'TE1TX0NPTlRFWFQ'; // 'LMS_CONTEXT' in Base64
 
 function getHaloUrl() {
     return new Promise((resolve) => {
         chrome.storage.sync.get('haloUrl', (data) => {
-            resolve(data.haloUrl || null);
+            resolve(data.haloUrl || 'https://halo.gcu.edu');
         });
     });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'get_lms_cookies') {
+        // Send back the LMS_AUTH and LMS_CONTEXT cookies for the Halo URL
+
         if (!sender.tab || !sender.tab.id) {
             sendResponse({ error: 'No tab information' });
             return false;
@@ -34,10 +36,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         });
 
-        return true; // Keep the message channel open for async response
-    }
-    
-    if (request.action === 'get_halo_url') {
+        return true;
+    } else if (request.action === 'get_halo_url') {
+        // Send back the saved Halo URL
+
         getHaloUrl().then((haloUrl) => {
             sendResponse({ haloUrl });
         });
@@ -48,27 +50,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
-// Check if page url changes and reload content script
 chrome.webNavigation.onHistoryStateUpdated.addListener(function(details) {
   if (details.frameId === 0) { // Ensures it runs for the top frame only
-    chrome.tabs.sendMessage(details.tabId, { action: "historyStateUpdated", url: details.url });
+    chrome.tabs.sendMessage(details.tabId, { action: "historyStateUpdated", url: details.url }).catch(() => {
+        // Ignore errors when the content script isn't ready
+    });
   }
 });
 
+// The content script waits for cookies to be set before updating the homepage.
+// This is usually done via the get_lms_cookies message, but on first load the cookies don't exist yet.
+// In that case, we'll listen for cookie changes here and notify the content script when they get set.
 chrome.cookies.onChanged.addListener(function(changeInfo) {
     if (changeInfo.cookie.name === LMS_AUTH_cookie_name || changeInfo.cookie.name === LMS_CONTEXT_cookie_name) {
-        // Notify all halo tabs that the cookies have changed
-        chrome.tabs.query({}, function(tabs) {
-            getHaloUrl().then((haloUrl) => {
-                if (!haloUrl) return;
-                
+        getHaloUrl().then((haloUrl) => {
+            if (!haloUrl) return;
+
+            chrome.tabs.query({ url: haloUrl + "/*" }, function(tabs) {
                 tabs.forEach(function(tab) {
-                    if (tab.url && tab.url.startsWith(haloUrl)) {
-                        if (changeInfo.cookie.name === LMS_AUTH_cookie_name) {
-                            chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_AUTH", cookieValue: changeInfo.cookie.value } );
-                        } else if (changeInfo.cookie.name === LMS_CONTEXT_cookie_name) {
-                            chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_CONTEXT", cookieValue: changeInfo.cookie.value } );
-                        }
+                    if (changeInfo.cookie.name === LMS_AUTH_cookie_name) {
+                        chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_AUTH", cookieValue: changeInfo.cookie.value }).catch(() => {});
+                    } else if (changeInfo.cookie.name === LMS_CONTEXT_cookie_name) {
+                        chrome.tabs.sendMessage(tab.id, { action: "lmsCookiesChanged", cookieName: "LMS_CONTEXT", cookieValue: changeInfo.cookie.value }).catch(() => {});
                     }
                 });
             });

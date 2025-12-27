@@ -4,10 +4,14 @@ let LMS_AUTH_value = null;
 let LMS_CONTEXT_value = null;
 let queue = [];
 
+///
+/// UTILITIES
+///
+
 function getHaloUrl() {
     return new Promise((resolve) => {
         chrome.runtime.sendMessage({ action: 'get_halo_url' }, (response) => {
-            resolve(response.haloUrl || null);
+            resolve(response.haloUrl || 'https://halo.gcu.edu');
         });
     });
 }
@@ -15,6 +19,22 @@ function getHaloUrl() {
 function weAreOnHomepage() {
     return window.location.pathname === '/';
 }
+
+function getCardFromClassCode(classCode, cards) {
+    let card_pres = cards.find(card => card.textContent.includes(classCode));
+
+    return card_pres ? card_pres.parentElement.parentElement.parentElement : null;
+}
+
+function applyStyles(element, styles) {
+    for (const property in styles) {
+        element.style[property] = styles[property];
+    }
+}
+
+///
+/// API INTERACTIONS
+///
 
 async function getClassList(tokens) {
     const query = 
@@ -242,11 +262,9 @@ fragment AllAssessmentGrades_assessmentGrades_grades_userQuizAssessment on QuizU
     return allGrades;
 }
 
-function getCardFromClassCode(classCode, cards) {
-    let card_pres = cards.find(card => card.innerHTML.includes(classCode));
-
-    return card_pres ? card_pres.parentElement.parentElement.parentElement : null;
-}
+///
+/// PAGE UPDATES
+///
 
 async function update_homepage(tokens) {
     console.log('Updating homepage with BetterHalo info');
@@ -265,6 +283,8 @@ async function update_homepage(tokens) {
     const classes = classListResponse.data.getCourseClassesForUser.courseClasses;
 
     const cards = Array.from(document.querySelectorAll(`div[role='presentation']`));
+
+    // Cache important dates
     const currentDate = new Date();
     const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
@@ -274,9 +294,11 @@ async function update_homepage(tokens) {
             .then(response => ({ classId: classInfo.id, response }))
     );
 
+    // Create a hash map of classId to grades response
     const allGradesResults = await Promise.all(gradePromises);
     const gradesMap = new Map(allGradesResults.map(res => [res.classId, res.response]));
 
+    // Iterate through classes and update homepage cards
     for (const classInfo of classes) {
         let card = getCardFromClassCode(classInfo.classCode, cards);
 
@@ -286,12 +308,14 @@ async function update_homepage(tokens) {
         }
 
         let upcoming_assessments_div = document.createElement('div');
-        upcoming_assessments_div.style.marginTop = '10px';
-        upcoming_assessments_div.style.paddingTop = '10px';
-        upcoming_assessments_div.style.borderTop = '1px solid #ccc';
-        upcoming_assessments_div.classList.add('betterhalo');
+        applyStyles(upcoming_assessments_div, {
+            marginTop: '10px',
+            paddingTop: '10px',
+            borderTop: '1px solid #ccc'
+        });
 
-        card.appendChild(upcoming_assessments_div);
+        // Add class in outer container for cleanup
+        upcoming_assessments_div.classList.add('betterhalo');
 
         // Copy assessment statuses
         const allGradesResponse = gradesMap.get(classInfo.id);
@@ -301,19 +325,20 @@ async function update_homepage(tokens) {
             continue;
         }
 
+        // Flatten all of the assessment units together since we don't care about units here
         let all_assessments = classInfo.units.flatMap(unit => unit.assessments);
         const assessmentMap = new Map(all_assessments.map(a => [a.id, a]));
 
-        for (const unitGrade of allGradesResponse.data.assessmentGrades) {
-            for (const grade of unitGrade.grades) {
-                const assessmentId = grade.assessment.id;
-                const assessment = assessmentMap.get(assessmentId);
-                if (assessment) {
-                    assessment.status = grade.status;
-                }
+        // Update assessment statuses
+        for (const assessment of allGradesResponse.data.assessmentGrades[0].grades) {
+            const assessmentInfo = assessmentMap.get(assessment.assessment.id);
+
+            if (assessmentInfo) {
+                assessmentInfo.status = assessment.status;
             }
         }
 
+        // Filter for upcoming assessments due within two weeks
         let upcoming_assessments = all_assessments
             .filter(
                 (assessment) => {
@@ -324,21 +349,29 @@ async function update_homepage(tokens) {
             )
             .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
+        // Create assessment list elements
         if (upcoming_assessments.length > 0) {
             let list = document.createElement('div');
-            list.style.display = 'flex';
-            list.style.flexDirection = 'column';
-            list.style.gap = '5px';
+            applyStyles(list, {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px'
+            });
 
             let count = 0;
             for (const assessment of upcoming_assessments) {
+                // Create the container for the assessment
                 let listItem = document.createElement('div');
-                listItem.style.display = 'flex';
-                listItem.style.justifyContent = 'space-between';
-                listItem.style.borderBottom = '1px solid #eee';
-                listItem.style.paddingBottom = '5px';
+                applyStyles(listItem, {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid #eee',
+                    paddingBottom: '5px'
+                });
                 listItem.setAttribute('data-class-id', classInfo.id);
                 
+                // Limit to 5 upcoming assessments and hide those more than a week past due
+                // TODO: Prioritize showing today/tomorrow assessments over past due ones if needed
                 const isTooMany = count > 4;
                 const isOverAWeekPastDue = new Date(assessment.dueDate) < new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
                 if (isTooMany || isOverAWeekPastDue) {
@@ -347,24 +380,36 @@ async function update_homepage(tokens) {
                     count++;
                 }
 
+                // Add the assignment title to the container
                 let listItemName = document.createElement('strong');
-                listItemName.style.whiteSpace = 'nowrap';
-                listItemName.style.overflow = 'hidden';
-                listItemName.style.textOverflow = 'ellipsis';
-                listItemName.style.flexShrink = '1';
+                applyStyles(listItemName, {
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    flexShrink: '1'
+                });
+
                 listItemName.textContent = assessment.title;
                 listItem.appendChild(listItemName);
 
+                // Add the due date to the container
                 let listItemDue = document.createElement('span');
-                listItemDue.style.textAlign = 'right';
-                listItemDue.style.whiteSpace = 'nowrap';
+                applyStyles(listItemDue, {
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap'
+                });
 
                 let dueDate = new Date(assessment.dueDate);
 
+                // PAST DUE: "Past Due <date>" (red)
+                // DUE TODAY: "Today <time>" (orange)
+                // DUE TOMORROW: "Tomorrow <time>" (normal)
+                // DUE THIS WEEK: "<DayOfWeek> <time>" (normal)
+                // DUE LATER: "<date>" (normal)
                 if (dueDate < currentDate) {
                     listItemDue.textContent = `Past Due ${dueDate.toLocaleDateString()}`;
                     listItemDue.style.color = 'red';
-                } else if (dueDate >= new Date(currentDate.getTime()) && dueDate < new Date(currentDate.getTime() + 1 * 24 * 60 * 60 * 1000)) {
+                } else if (dueDate < new Date(currentDate.getTime() + 1 * 24 * 60 * 60 * 1000)) {
                     listItemDue.textContent = `Today ${dueDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
                     listItemDue.style.color = 'orange';
                 } else if (dueDate >= new Date(currentDate.getTime() + 1 * 24 * 60 * 60 * 1000) && dueDate <= new Date(currentDate.getTime() + 2 * 24 * 60 * 60 * 1000)) {
@@ -377,38 +422,55 @@ async function update_homepage(tokens) {
                 }
 
                 listItem.appendChild(listItemDue);
+
+                // Append the assessment item to the list
                 list.appendChild(listItem);
             }
 
-            let showMoreButton = document.createElement('button');
-            showMoreButton.textContent = 'Show More';
-            showMoreButton.style.marginTop = '5px';
-            showMoreButton.style.color = '#007bff';
-            showMoreButton.style.textDecoration = 'underline';
-            showMoreButton.addEventListener('click', () => {
-                const hiddenItems = upcoming_assessments_div.querySelectorAll('div[data-class-id=\"' + classInfo.id + '\"][style*="display: none"]');
-                hiddenItems.forEach(item => item.style.display = 'flex');
-                showMoreButton.style.display = 'none';
-            });
-
+            // Append the list to the assessments div
             upcoming_assessments_div.appendChild(list);
-            upcoming_assessments_div.appendChild(showMoreButton);
+
+            // Add a "Show More" button which is enabled if there are hidden assessments
+            if (count > 4) {
+                let showMoreButton = document.createElement('button');
+
+                applyStyles(showMoreButton, {
+                    marginTop: '5px',
+                    color: '#007bff',
+                    textDecoration: 'underline'
+                });
+
+                showMoreButton.textContent = 'Show More';
+
+                showMoreButton.addEventListener('click', () => {
+                    const hiddenItems = upcoming_assessments_div.querySelectorAll('div[data-class-id=\"' + classInfo.id + '\"][style*="display: none"]');
+                    hiddenItems.forEach(item => item.style.display = 'flex');
+                    showMoreButton.style.display = 'none';
+                });
+
+                upcoming_assessments_div.appendChild(showMoreButton);
+            }
         } else {
+            // Create a "No upcoming assessments" message if none are found
             let noAssessments = document.createElement('p');
             noAssessments.textContent = 'No upcoming assessments';
             upcoming_assessments_div.appendChild(noAssessments);
         }
+
+        // Add the assessments div to the card
+        card.appendChild(upcoming_assessments_div);
     }
 }
 
 function update_page() {
+    // Don't try updating without the cookies
     if (!LMS_AUTH_value || !LMS_CONTEXT_value) {
         return;
     }
 
-    // Make sure the card elements are loaded
+    // Make sure the card elements are loaded. If not, schedule another update.
     if (document.querySelectorAll(`div[role='presentation']`).length === 0) {
-        enqueueFunction(update_page);
+        setTimeout(update_page, 50);
         return;
     }
 
@@ -421,6 +483,10 @@ function update_page() {
         update_homepage(tokens);
     }
 }
+
+///
+/// MESSAGE HANDLING
+///
 
 function request_cookies() {
     // Retrieve LMS cookies
@@ -437,37 +503,16 @@ function request_cookies() {
         LMS_AUTH_value = response.LMS_AUTH;
         LMS_CONTEXT_value = response.LMS_CONTEXT;
 
-        enqueueFunction(update_page);
+        update_page();
     });
 }
 
-function processQueue() {
-    if (queue.length > 0) {
-        const func = queue.shift();
-
-        // Remove duplicates of the same function in the queue
-        queue = queue.filter(f => f !== func);
-
-        func();
-        
-        window.setTimeout(processQueue, 10);
-    }
-}
-
-function enqueueFunction(func) {
-    if (queue.includes(func)) {
-        return;
-    }
-
-    if (queue.length === 0) {
-        window.setTimeout(processQueue, 10);
-    }
-
-    queue.push(func);
-}
+///
+/// INITIALIZATION
+///
 
 async function onload() {
-    haloUrl = await getHaloUrl() || 'https://halo.gcu.edu';
+    haloUrl = await getHaloUrl();
     
     // Append gateway. to halo url
     const haloApiUrlBuilder = new URL(haloUrl);
@@ -487,7 +532,7 @@ async function onload() {
 
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {     
         if (request.action === "historyStateUpdated") {
-            enqueueFunction(update_page);
+            update_page();
             return;
         }
         
@@ -503,14 +548,13 @@ async function onload() {
                 LMS_CONTEXT_value = request.cookieValue;
             }
 
-            enqueueFunction(update_page);
+            update_page();
             return;
         }
     });
     
     // Initial request for cookies to populate content
-    enqueueFunction(request_cookies);
-    enqueueFunction(update_page);
+    request_cookies();
 }
 
 onload();
