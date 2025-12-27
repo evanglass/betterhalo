@@ -294,8 +294,6 @@ async function update_homepage(tokens, settings) {
 
     const classes = classListResponse.data.getCourseClassesForUser.courseClasses;
 
-    const cards = Array.from(document.querySelectorAll(`div[role='presentation']`));
-
     // Cache important dates
     const currentDate = new Date();
     const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
@@ -312,14 +310,8 @@ async function update_homepage(tokens, settings) {
     const gradesMap = new Map(allGradesResults.map(res => [res.classId, res.response]));
 
     // Iterate through classes and update homepage cards
+    let cardContentsMap = new Map();
     for (const classInfo of classes) {
-        let card = getCardFromClassCode(classInfo.classCode, cards);
-
-        if (!card) {
-            console.error('Failed to find card for', classInfo.classCode);
-            continue;
-        }
-
         let upcoming_assessments_div = document.createElement('div');
         applyStyles(upcoming_assessments_div, {
             marginTop: '10px',
@@ -471,8 +463,28 @@ async function update_homepage(tokens, settings) {
         }
 
         // Add the assessments div to the card
-        card.appendChild(upcoming_assessments_div);
+        cardContentsMap.set(classInfo.id, upcoming_assessments_div);
     }
+
+    // Finally, append all created assessment divs to their respective cards
+    function appendCards() {
+        const cards = Array.from(document.querySelectorAll(`div[role='presentation']`));
+
+        if (cards.length === 0) {
+            // Retry after a short delay if cards are not yet loaded
+            setTimeout(appendCards, 50);
+            return;
+        }
+
+        for (const [classId, assessmentsDiv] of cardContentsMap.entries()) {
+            const card = getCardFromClassCode(classes.find(c => c.id === classId).classCode, cards);
+            if (card) {
+                card.appendChild(assessmentsDiv);
+            }
+        }
+    }
+
+    appendCards();
 }
 
 function update_page() {
@@ -484,12 +496,6 @@ function update_page() {
     // Clear any pending update to avoid multiple concurrent update loops
     if (pendingUpdateTimeout) {
         clearTimeout(pendingUpdateTimeout);
-    }
-
-    // Make sure the card elements are loaded. If not, schedule another update.
-    if (document.querySelectorAll(`div[role='presentation']`).length === 0) {
-        pendingUpdateTimeout = setTimeout(update_page, 50);
-        return;
     }
 
     const tokens = {
