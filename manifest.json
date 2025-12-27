@@ -39,8 +39,7 @@
 		"gecko": {
 			"id": "betterhalo@evanglass.me",
             "data_collection_permissions": {
-                "required": [],
-                "optional": []
+                "required": ["none"]
             }
 		}
 	}
