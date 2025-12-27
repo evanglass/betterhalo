@@ -468,11 +468,16 @@ async function update_homepage(tokens, settings) {
 
     // Finally, append all created assessment divs to their respective cards
     function appendCards() {
+        // Clear any pending update to avoid multiple concurrent update loops
+        if (pendingUpdateTimeout) {
+            clearTimeout(pendingUpdateTimeout);
+        }
+
         const cards = Array.from(document.querySelectorAll(`div[role='presentation']`));
 
         if (cards.length === 0) {
             // Retry after a short delay if cards are not yet loaded
-            setTimeout(appendCards, 50);
+            pendingUpdateTimeout = setTimeout(appendCards, 50);
             return;
         }
 
@@ -491,11 +496,6 @@ function update_page() {
     // Don't try updating without the cookies
     if (!LMS_AUTH_value || !LMS_CONTEXT_value) {
         return;
-    }
-
-    // Clear any pending update to avoid multiple concurrent update loops
-    if (pendingUpdateTimeout) {
-        clearTimeout(pendingUpdateTimeout);
     }
 
     const tokens = {
