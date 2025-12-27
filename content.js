@@ -3,6 +3,7 @@ let haloApiUrl = null;
 let LMS_AUTH_value = null;
 let LMS_CONTEXT_value = null;
 let queue = [];
+let pendingUpdateTimeout = null;
 let settings = {
     upcomingAssignmentCount: 5
 };
@@ -307,6 +308,7 @@ async function update_homepage(tokens, settings) {
 
     // Create a hash map of classId to grades response
     const allGradesResults = await Promise.all(gradePromises);
+
     const gradesMap = new Map(allGradesResults.map(res => [res.classId, res.response]));
 
     // Iterate through classes and update homepage cards
@@ -479,9 +481,14 @@ function update_page() {
         return;
     }
 
+    // Clear any pending update to avoid multiple concurrent update loops
+    if (pendingUpdateTimeout) {
+        clearTimeout(pendingUpdateTimeout);
+    }
+
     // Make sure the card elements are loaded. If not, schedule another update.
     if (document.querySelectorAll(`div[role='presentation']`).length === 0) {
-        setTimeout(update_page, 50);
+        pendingUpdateTimeout = setTimeout(update_page, 50);
         return;
     }
 
