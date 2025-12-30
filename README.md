@@ -3,7 +3,7 @@
 BetterHalo is a browser extension designed to enhance the Halo LMS experience. It is intended to be an analogue to [BetterCanvas](https://github.com/UseBetterCanvas/bettercanvas) designed for the Grand Canyon University's Halo LMS system.
 
 ## Features
-- **Upcoming Assessments:** See what's due in the next for all your classes at a glance, right at the homepage.
+- **Upcoming Assessments:** See what's due next for all your classes at a glance, right at the homepage.
 - **Up to Date:** Automatically refreshes when you load your homepage to make sure you have the latest info.
 - **Privacy Focused:** All data is processed locally in your browser. No data is ever sent to external servers.
 
