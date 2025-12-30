@@ -9,8 +9,11 @@ BetterHalo is a browser extension designed to enhance the Halo LMS experience. I
 
 ## Easy Installation
 
+### Chrome
 `Coming soon: Chrome Web Store`
-`Coming soon: Firefox Add-on Store`
+
+### Firefox
+Get it on the [Firefox Add-on Store](https://addons.mozilla.org/en-US/firefox/addon/betterhalo/)
 
 ## Manual Installation
 
