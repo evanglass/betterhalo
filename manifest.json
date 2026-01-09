@@ -1,11 +1,10 @@
 {
 	"manifest_version": 3,
 	"name": "BetterHalo",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "A better way to use Halo LMS.",
 	"permissions": [
         "storage",
-        "scripting",
         "cookies",
         "webNavigation"
     ],
